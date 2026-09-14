@@ -281,6 +281,10 @@
         headers: { 'Cache-Control': 'no-cache' }
       });
 
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
@@ -440,6 +444,18 @@
     coresGrid.style.display = showCores ? 'grid' : 'none';
     toggleCoresBtn.querySelector('.toggle-icon').textContent = showCores ? '▴' : '▾';
   });
+
+  // Logout
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+      } finally {
+        window.location.href = '/login';
+      }
+    });
+  }
 
   // Function to redraw all canvas charts with current container dimensions
   function redrawCharts() {

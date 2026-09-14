@@ -3,49 +3,24 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	"spectra/internal/auth"
 	"spectra/internal/collector"
 	"spectra/web"
 )
-
-// basicAuthMiddleware intercepts requests and verifies username & password
-func basicAuthMiddleware(username, password string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If credentials are not configured, allow access
-		if username == "" && password == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Keep health check endpoint open for Docker and Cloudflare monitoring
-		if r.URL.Path == "/health" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		u, p, ok := r.BasicAuth()
-		if !ok || subtle.ConstantTimeCompare([]byte(u), []byte(username)) != 1 ||
-			subtle.ConstantTimeCompare([]byte(p), []byte(password)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Spectra Server Monitor"`)
-			http.Error(w, "Unauthorized: Authentication required", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
 
 func main() {
 	defaultPort := 5050
@@ -60,8 +35,8 @@ func main() {
 
 	portFlag := flag.Int("port", defaultPort, "Port to listen on (default 5050)")
 	hostFlag := flag.String("host", "0.0.0.0", "Host address to bind to (default 0.0.0.0)")
-	userFlag := flag.String("user", defaultUser, "Username for HTTP Basic Auth (optional)")
-	passFlag := flag.String("pass", defaultPass, "Password for HTTP Basic Auth (optional)")
+	userFlag := flag.String("user", defaultUser, "Username for authentication (optional)")
+	passFlag := flag.String("pass", defaultPass, "Password for authentication (optional)")
 	flag.Parse()
 
 	activeUser := *userFlag
@@ -84,16 +59,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize hardware collector
+	// Initialize hardware collector & auth manager
 	col := collector.NewCollector()
+	authMgr := auth.NewAuthManager(activeUser, activePass)
 
 	mux := http.NewServeMux()
 
-	// Static Assets (Embedded in binary)
-	fileServer := http.FileServer(web.GetFileSystem())
-	mux.Handle("/", fileServer)
-
-	// Health check endpoint
+	// 1. Health check endpoint (always unauthenticated for Docker and Cloudflare)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -101,9 +73,91 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Real-time API Endpoint
+	// 2. Login page
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if !authMgr.IsEnabled() {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		if cookie, err := r.Cookie(auth.CookieName); err == nil {
+			if authMgr.VerifySessionToken(cookie.Value) {
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+		}
+
+		loginFile, err := web.GetFileSystem().Open("login.html")
+		if err != nil {
+			http.Error(w, "Login page unavailable", http.StatusInternalServerError)
+			return
+		}
+		defer loginFile.Close()
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		_, _ = io.Copy(w, loginFile)
+	})
+
+	// 3. Login API (Handles authentication form submit)
+	mux.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = w.Write([]byte(`{"error":"Method not allowed"}`))
+			return
+		}
+
+		var req struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"Invalid request format"}`))
+			return
+		}
+
+		if !authMgr.ValidateCredentials(req.Username, req.Password) {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"Invalid username or password"}`))
+			return
+		}
+
+		token := authMgr.GenerateSessionToken()
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.CookieName,
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(auth.SessionMaxAge.Seconds()),
+		})
+
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	// 4. Logout Handler
+	logoutHandler := func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.CookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   -1,
+		})
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusFound)
+	}
+	mux.HandleFunc("/api/logout", logoutHandler)
+	mux.HandleFunc("/logout", logoutHandler)
+
+	// 5. Real-time API Endpoint
 	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
-		// Enforce no-cache for Cloudflare proxy & CDNs
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Set("Pragma", "no-cache")
@@ -121,8 +175,12 @@ func main() {
 		}
 	})
 
-	// Wrap root handler with Authentication middleware
-	handler := basicAuthMiddleware(activeUser, activePass, mux)
+	// 6. Static Assets
+	fileServer := http.FileServer(web.GetFileSystem())
+	mux.Handle("/", fileServer)
+
+	// Wrap mux with session authentication middleware
+	handler := authMgr.Middleware(mux)
 
 	srv := &http.Server{
 		Handler:      handler,
@@ -138,8 +196,8 @@ func main() {
 	fmt.Printf(" [✓] สถานะการทำงาน:      กำลังทำงาน (Running)\n")
 	fmt.Printf(" [✓] Local URL:          http://localhost:%d\n", *portFlag)
 	fmt.Printf(" [✓] Network URL:        http://%s\n", addr)
-	if activeUser != "" && activePass != "" {
-		fmt.Printf(" [✓] ระบบความปลอดภัย:    เปิดรหัสผ่าน Basic Auth (User: %s)\n", activeUser)
+	if authMgr.IsEnabled() {
+		fmt.Printf(" [✓] ระบบความปลอดภัย:    เปิดใช้งานหน้า Login (User: %s)\n", activeUser)
 	} else {
 		fmt.Println(" [!] ระบบความปลอดภัย:    สาธารณะ (ไม่มีรหัสผ่าน)")
 	}
