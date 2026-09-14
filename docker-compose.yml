@@ -10,6 +10,10 @@ services:
       - "5050:5050"
     environment:
       - PORT=5050
+      # Basic Authentication (Optional - uncomment to secure your dashboard)
+      # - AUTH_USER=admin
+      # - AUTH_PASS=your-secure-password
+      
       # Enables gopsutil to read Linux host statistics when volumes below are mounted
       - HOST_PROC=/host/proc
       - HOST_SYS=/host/sys

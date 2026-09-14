@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -19,6 +20,33 @@ import (
 	"spectra/web"
 )
 
+// basicAuthMiddleware intercepts requests and verifies username & password
+func basicAuthMiddleware(username, password string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If credentials are not configured, allow access
+		if username == "" && password == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Keep health check endpoint open for Docker and Cloudflare monitoring
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		u, p, ok := r.BasicAuth()
+		if !ok || subtle.ConstantTimeCompare([]byte(u), []byte(username)) != 1 ||
+			subtle.ConstantTimeCompare([]byte(p), []byte(password)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Spectra Server Monitor"`)
+			http.Error(w, "Unauthorized: Authentication required", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	defaultPort := 5050
 	if envPort := os.Getenv("PORT"); envPort != "" {
@@ -27,9 +55,17 @@ func main() {
 		}
 	}
 
+	defaultUser := os.Getenv("AUTH_USER")
+	defaultPass := os.Getenv("AUTH_PASS")
+
 	portFlag := flag.Int("port", defaultPort, "Port to listen on (default 5050)")
 	hostFlag := flag.String("host", "0.0.0.0", "Host address to bind to (default 0.0.0.0)")
+	userFlag := flag.String("user", defaultUser, "Username for HTTP Basic Auth (optional)")
+	passFlag := flag.String("pass", defaultPass, "Password for HTTP Basic Auth (optional)")
 	flag.Parse()
+
+	activeUser := *userFlag
+	activePass := *passFlag
 
 	addr := fmt.Sprintf("%s:%d", *hostFlag, *portFlag)
 
@@ -67,6 +103,7 @@ func main() {
 
 	// Real-time API Endpoint
 	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		// Enforce no-cache for Cloudflare proxy & CDNs
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Set("Pragma", "no-cache")
@@ -84,8 +121,11 @@ func main() {
 		}
 	})
 
+	// Wrap root handler with Authentication middleware
+	handler := basicAuthMiddleware(activeUser, activePass, mux)
+
 	srv := &http.Server{
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -98,9 +138,14 @@ func main() {
 	fmt.Printf(" [✓] สถานะการทำงาน:      กำลังทำงาน (Running)\n")
 	fmt.Printf(" [✓] Local URL:          http://localhost:%d\n", *portFlag)
 	fmt.Printf(" [✓] Network URL:        http://%s\n", addr)
+	if activeUser != "" && activePass != "" {
+		fmt.Printf(" [✓] ระบบความปลอดภัย:    เปิดรหัสผ่าน Basic Auth (User: %s)\n", activeUser)
+	} else {
+		fmt.Println(" [!] ระบบความปลอดภัย:    สาธารณะ (ไม่มีรหัสผ่าน)")
+	}
 	fmt.Println(" [✓] Cloudflare Ready:   Header no-cache พร้อมใช้งาน")
 	fmt.Println("--------------------------------------------------")
-	fmt.Println(" (*) เปิดหน้าเว็บได้ที่: http://localhost:5050")
+	fmt.Printf(" (*) เปิดหน้าเว็บได้ที่: http://localhost:%d\n", *portFlag)
 	fmt.Println(" (*) อย่าเพิ่งปิดหน้าต่างนี้ เพื่อให้แดชบอร์ดทำงานต่อเนื่อง")
 	fmt.Println(" (*) กด Ctrl + C ในหน้าต่างนี้เพื่อหยุดการทำงาน")
 	fmt.Println("==================================================")
