@@ -1,0 +1,17 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+spectra
+spectra-linux
+
+# Build Cache
+.gocache/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

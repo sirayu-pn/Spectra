@@ -1,0 +1,9 @@
+.gocache
+*.exe
+spectra-linux
+.git
+.gitignore
+.vscode
+.idea
+*.bat
+README.md
