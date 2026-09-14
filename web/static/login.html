@@ -29,6 +29,21 @@
       box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
       display: flex;
       flex-direction: column;
+      transform-origin: center center;
+      transition: transform 0.2s ease;
+    }
+
+    /* Subtle Shake Animation on Validation Error */
+    @keyframes cardShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+
+    .login-card.shake {
+      animation: cardShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
     }
 
     .login-header {
@@ -36,7 +51,7 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .login-logo {
@@ -59,26 +74,56 @@
       line-height: 1.4;
     }
 
+    /* Error Banner */
+    .error-banner {
+      display: none;
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 18px;
+      line-height: 1.4;
+      text-align: center;
+      animation: slideFadeIn 0.25s ease forwards;
+    }
+
+    @keyframes slideFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .login-form {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
+      position: relative;
     }
 
     .form-label {
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
       color: var(--text-secondary);
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
     }
 
+    .input-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    /* Clean Input Field (Zero Clumsy Focus Rings) */
     .input-field {
       width: 100%;
       height: 42px;
@@ -89,20 +134,75 @@
       background-color: var(--bg-subtle);
       border: 1px solid var(--border-light);
       border-radius: var(--radius-sm);
-      outline: none;
-      transition: all 0.15s ease;
+      outline: none !important;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .input-field:focus {
+    /* Crisp, Elegant Single Focus Highlight */
+    .input-field:focus, 
+    .input-field:focus-visible {
+      outline: none !important;
       background-color: #ffffff;
       border-color: var(--accent-primary);
       box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
     }
 
+    /* Error Highlight State */
+    .input-field.input-error {
+      border-color: var(--accent-danger) !important;
+      background-color: #fffafb !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+    }
+
+    /* Inline Field Error Message */
+    .field-error-msg {
+      display: none;
+      font-size: 11px;
+      font-weight: 500;
+      color: #dc2626;
+      margin-top: 2px;
+      animation: slideFadeIn 0.2s ease forwards;
+    }
+
+    .input-field.input-error + .field-error-msg,
+    .form-group.has-error .field-error-msg {
+      display: block;
+    }
+
+    /* Password Toggle Button */
+    .toggle-pass-btn {
+      position: absolute;
+      right: 8px;
+      background: transparent;
+      border: none;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: color 0.15s ease, background-color 0.15s ease;
+      outline: none !important;
+    }
+
+    .toggle-pass-btn:hover {
+      color: var(--text-primary);
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+
+    .input-container .input-field.has-toggle {
+      padding-right: 40px;
+    }
+
+    /* Submit Button with Interactive States */
     .login-btn {
       width: 100%;
       height: 44px;
-      margin-top: 6px;
+      margin-top: 8px;
       background-color: var(--text-primary);
       color: #ffffff;
       border: none;
@@ -115,7 +215,8 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: all 0.15s ease;
+      transition: all 0.2s ease;
+      outline: none !important;
     }
 
     .login-btn:hover {
@@ -127,21 +228,12 @@
     }
 
     .login-btn.loading {
-      opacity: 0.7;
+      opacity: 0.75;
       pointer-events: none;
     }
 
-    .error-banner {
-      display: none;
-      background-color: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
-      font-size: 12.5px;
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      margin-bottom: 18px;
-      line-height: 1.4;
-      text-align: center;
+    .login-btn.success {
+      background-color: var(--accent-success);
     }
 
     .login-footer {
@@ -150,11 +242,29 @@
       font-size: 11.5px;
       color: var(--text-muted);
     }
+
+    /* Micro-spinner for button */
+    .btn-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .login-btn.loading .btn-spinner {
+      display: inline-block;
+    }
+    .login-btn.loading .btn-arrow {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="login-wrapper">
-    <div class="login-card">
+    <div class="login-card" id="login-card">
       <div class="login-header">
         <div class="login-logo">
           <span class="logo-mark">●</span>
@@ -167,37 +277,54 @@
         Invalid username or password
       </div>
 
-      <form class="login-form" id="login-form">
-        <div class="form-group">
+      <form class="login-form" id="login-form" novalidate>
+        <div class="form-group" id="group-username">
           <label class="form-label" for="username">Username</label>
-          <input 
-            type="text" 
-            id="username" 
-            name="username" 
-            class="input-field" 
-            placeholder="Enter username" 
-            required 
-            autofocus 
-            autocomplete="username"
-          >
+          <div class="input-container">
+            <input 
+              type="text" 
+              id="username" 
+              name="username" 
+              class="input-field" 
+              placeholder="Enter username" 
+              autocomplete="username"
+              spellcheck="false"
+            >
+          </div>
+          <span class="field-error-msg" id="error-username">Please enter your username</span>
         </div>
 
-        <div class="form-group">
+        <div class="form-group" id="group-password">
           <label class="form-label" for="password">Password</label>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            class="input-field" 
-            placeholder="••••••••" 
-            required 
-            autocomplete="current-password"
-          >
+          <div class="input-container">
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              class="input-field has-toggle" 
+              placeholder="••••••••" 
+              autocomplete="current-password"
+            >
+            <button type="button" class="toggle-pass-btn" id="toggle-pass-btn" title="Show/Hide Password" aria-label="Toggle password visibility">
+              <!-- Eye open SVG -->
+              <svg id="eye-open-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <!-- Eye closed SVG (hidden by default) -->
+              <svg id="eye-closed-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+          <span class="field-error-msg" id="error-password">Please enter your password</span>
         </div>
 
         <button type="submit" class="login-btn" id="login-btn">
-          <span>Sign In</span>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <span class="btn-spinner"></span>
+          <span class="btn-text">Sign In</span>
+          <svg class="btn-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
         </button>
@@ -210,43 +337,125 @@
   </div>
 
   <script>
+    const card = document.getElementById('login-card');
     const form = document.getElementById('login-form');
     const userField = document.getElementById('username');
     const passField = document.getElementById('password');
     const submitBtn = document.getElementById('login-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
     const errorBanner = document.getElementById('error-banner');
 
+    const groupUser = document.getElementById('group-username');
+    const groupPass = document.getElementById('group-password');
+
+    const togglePassBtn = document.getElementById('toggle-pass-btn');
+    const eyeOpen = document.getElementById('eye-open-icon');
+    const eyeClosed = document.getElementById('eye-closed-icon');
+
+    // Trigger playful shake animation
+    function triggerShake() {
+      card.classList.remove('shake');
+      void card.offsetWidth; // Force reflow
+      card.classList.add('shake');
+      setTimeout(() => card.classList.remove('shake'), 500);
+    }
+
+    // Toggle Password Visibility
+    togglePassBtn.addEventListener('click', () => {
+      const isPassword = passField.type === 'password';
+      passField.type = isPassword ? 'text' : 'password';
+      eyeOpen.style.display = isPassword ? 'none' : 'block';
+      eyeClosed.style.display = isPassword ? 'block' : 'none';
+    });
+
+    // Clear validation errors dynamically while typing
+    userField.addEventListener('input', () => {
+      userField.classList.remove('input-error');
+      groupUser.classList.remove('has-error');
+      errorBanner.style.display = 'none';
+    });
+
+    passField.addEventListener('input', () => {
+      passField.classList.remove('input-error');
+      groupPass.classList.remove('has-error');
+      errorBanner.style.display = 'none';
+    });
+
+    // Form Submission & Interactive Validation
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorBanner.style.display = 'none';
+
+      const usernameVal = userField.value.trim();
+      const passwordVal = passField.value;
+
+      let hasError = false;
+
+      // Validate Username
+      if (!usernameVal) {
+        userField.classList.add('input-error');
+        groupUser.classList.add('has-error');
+        hasError = true;
+      }
+
+      // Validate Password
+      if (!passwordVal) {
+        passField.classList.add('input-error');
+        groupPass.classList.add('has-error');
+        hasError = true;
+      }
+
+      // If empty fields: shake card & focus first invalid field
+      if (hasError) {
+        triggerShake();
+        if (!usernameVal) {
+          userField.focus();
+        } else {
+          passField.focus();
+        }
+        return;
+      }
+
+      // Start Loading State
       submitBtn.classList.add('loading');
-      submitBtn.querySelector('span').textContent = 'Signing in...';
+      btnText.textContent = 'Verifying...';
 
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            username: userField.value.trim(),
-            password: passField.value
+            username: usernameVal,
+            password: passwordVal
           })
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Invalid credentials');
+          throw new Error(errData.error || 'Invalid username or password');
         }
 
-        // Redirect to dashboard upon successful login
-        window.location.href = '/';
-      } catch (err) {
-        errorBanner.textContent = err.message || 'Invalid username or password';
-        errorBanner.style.display = 'block';
-        passField.value = '';
-        passField.focus();
-      } finally {
+        // Success state
         submitBtn.classList.remove('loading');
-        submitBtn.querySelector('span').textContent = 'Sign In';
+        submitBtn.classList.add('success');
+        btnText.textContent = 'Success! Entering...';
+
+        setTimeout(() => {
+          window.location.replace('/');
+        }, 300);
+
+      } catch (err) {
+        // Wrong credentials: shake card & highlight password field
+        triggerShake();
+        errorBanner.textContent = 'Incorrect username or password. Please try again.';
+        errorBanner.style.display = 'block';
+
+        passField.value = '';
+        passField.classList.add('input-error');
+        passField.focus();
+
+        submitBtn.classList.remove('loading');
+        btnText.textContent = 'Sign In';
       }
     });
   </script>
