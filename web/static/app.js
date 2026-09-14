@@ -3,7 +3,9 @@
   'use strict';
 
   // Config & State
-  let currentInterval = 2000; // default 2s
+  const STORAGE_KEY_TICK = 'spectra_time_tick';
+  let savedTick = localStorage.getItem(STORAGE_KEY_TICK);
+  let currentInterval = savedTick !== null ? parseInt(savedTick, 10) : 2000;
   let timerId = null;
   let isFetching = false;
   let showCores = false;
@@ -417,14 +419,38 @@
     }
   }
 
+  // Function to highlight active tick button based on interval
+  function applyActiveTickButton(interval) {
+    let matched = false;
+    tickButtons.forEach(b => {
+      const btnInterval = parseInt(b.getAttribute('data-interval'), 10);
+      if (btnInterval === interval) {
+        b.classList.add('active');
+        matched = true;
+      } else {
+        b.classList.remove('active');
+      }
+    });
+    if (!matched && tickButtons.length > 0) {
+      tickButtons[1].classList.add('active'); // fallback to 2s
+      currentInterval = 2000;
+    }
+  }
+
+  // Restore saved tick UI state on page load
+  applyActiveTickButton(currentInterval);
+
   // Event Listeners for Tick Interval Buttons
   tickButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      tickButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
       const interval = parseInt(btn.getAttribute('data-interval'), 10);
       currentInterval = interval;
+      try {
+        localStorage.setItem(STORAGE_KEY_TICK, interval.toString());
+      } catch (e) {
+        console.warn('Unable to save to localStorage:', e);
+      }
+      applyActiveTickButton(interval);
       resetTimer();
 
       if (interval > 0) {
