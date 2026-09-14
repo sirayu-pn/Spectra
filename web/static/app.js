@@ -270,12 +270,14 @@
   }
 
   // Main Fetch logic
-  async function fetchStats() {
+  async function fetchStats(isManual = false) {
     if (isFetching) return;
     isFetching = true;
     const startTime = performance.now();
 
-    btnManualRefresh.classList.add('spinning');
+    if (isManual) {
+      btnManualRefresh.classList.add('spinning');
+    }
 
     try {
       // Cloudflare cache busting with timestamp
@@ -404,7 +406,11 @@
       statusText.textContent = 'Offline';
     } finally {
       isFetching = false;
-      btnManualRefresh.classList.remove('spinning');
+      if (isManual) {
+        setTimeout(() => {
+          btnManualRefresh.classList.remove('spinning');
+        }, 400);
+      }
     }
   }
 
@@ -461,7 +467,7 @@
 
   // Manual Refresh
   btnManualRefresh.addEventListener('click', () => {
-    fetchStats();
+    fetchStats(true);
   });
 
   // Toggle Per-Core View
