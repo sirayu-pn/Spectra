@@ -474,12 +474,20 @@
   // Logout
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
-    btnLogout.addEventListener('click', async () => {
+    btnLogout.addEventListener('click', async (e) => {
+      e.preventDefault();
+      btnLogout.style.pointerEvents = 'none';
+      btnLogout.style.opacity = '0.6';
       try {
-        await fetch('/api/logout', { method: 'POST' });
-      } finally {
-        window.location.href = '/login';
+        await fetch('/api/logout', { 
+          method: 'POST', 
+          credentials: 'same-origin',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+      } catch (err) {
+        console.warn('Logout request error:', err);
       }
+      window.location.replace('/login');
     });
   }
 

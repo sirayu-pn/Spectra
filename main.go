@@ -145,6 +145,7 @@ func main() {
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   -1,
+			Expires:  time.Unix(0, 0),
 		})
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			w.Header().Set("Content-Type", "application/json")

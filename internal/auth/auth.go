@@ -111,24 +111,27 @@ func (a *AuthManager) Middleware(next http.Handler) http.Handler {
 
 		// Whitelisted unauthenticated endpoints
 		if path == "/health" || path == "/login" || path == "/api/login" ||
+			path == "/logout" || path == "/api/logout" ||
 			path == "/style.css" || path == "/login.html" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// 1. Check HTTP Basic Auth (for automated scripts or curl)
-		if u, p, ok := r.BasicAuth(); ok {
-			if a.ValidateCredentials(u, p) {
+		// 1. Check Cookie Session (primary for browser access)
+		if cookie, err := r.Cookie(CookieName); err == nil {
+			if a.VerifySessionToken(cookie.Value) {
 				next.ServeHTTP(w, r)
 				return
 			}
 		}
 
-		// 2. Check Cookie Session
-		if cookie, err := r.Cookie(CookieName); err == nil {
-			if a.VerifySessionToken(cookie.Value) {
-				next.ServeHTTP(w, r)
-				return
+		// 2. Check HTTP Basic Auth ONLY for API calls from curl or automation
+		if strings.HasPrefix(path, "/api/") {
+			if u, p, ok := r.BasicAuth(); ok {
+				if a.ValidateCredentials(u, p) {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		}
 
