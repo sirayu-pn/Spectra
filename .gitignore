@@ -4,8 +4,8 @@
 *.dll
 *.so
 *.dylib
-spectra
-spectra-linux
+/spectra
+/spectra-linux
 
 # Build Cache
 .gocache/

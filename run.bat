@@ -9,6 +9,7 @@ echo.
 
 if not exist "spectra.exe" (
     echo [INFO] Compiling spectra.exe...
+    set "GOCACHE=%~dp0.gocache"
     go build -o spectra.exe .
     if %ERRORLEVEL% NEQ 0 (
         echo [ERROR] Failed to compile spectra.exe
